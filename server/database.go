@@ -7,16 +7,16 @@ import (
 )
 
 type MediaRecord struct {
-	Filename string
-	Hash     string
-	Type     string
+	Filename string `json:"filename"`
+	Hash     string `json:"hash"`
+	Type     string `json:"type"`
 }
 
 var db *sql.DB
 
 func InitDB() error {
 	var err error
-	db, err = sql.Open("sqlite", "./storage.db")
+	db, err = sql.Open("sqlite", "./photos.db")
 	if err != nil {
 		return err
 	}
@@ -53,11 +53,6 @@ func GetRecords() ([]MediaRecord, error) {
 	return records, nil
 }
 
-func SaveMediaRecord(filename string, hash string, mediaType string) error {
-	_, err := db.Exec("INSERT INTO media (filename, hash, type) VALUES (?, ?, ?)", filename, hash, mediaType)
-	return err
-}
-
 func GetExistingFilesMap() (map[string]bool, error) {
 	rows, err := db.Query("SELECT filename FROM media")
 	if err != nil {
@@ -74,4 +69,9 @@ func GetExistingFilesMap() (map[string]bool, error) {
 		fileMap[filename] = true
 	}
 	return fileMap, nil
+}
+
+func SaveMediaRecord(filename string, hash string, mediaType string) error {
+	_, err := db.Exec("INSERT INTO media (filename, hash, type) VALUES (?, ?, ?)", filename, hash, mediaType)
+	return err
 }

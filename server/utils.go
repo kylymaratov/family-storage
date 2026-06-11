@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -97,4 +99,21 @@ func syncStorageWithDB() error {
 
 	fmt.Printf("Bootstrap scan completed. Newly indexed files: %d\n", newFilesIndexed)
 	return nil
+}
+
+func getMediaHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	records, err := GetRecords()
+	if err != nil {
+		http.Error(w, "Database internal error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(records)
 }

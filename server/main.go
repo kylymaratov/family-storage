@@ -1,25 +1,33 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
-	"os"
-	"path/filepath"
-	"strings"
-	"time"
 
-	"github.com/google/uuid"
+	"time"
 )
 
-const StorageDir = "/media/andromeda/FamliyFiles"
-const StorageDirVideo = "/media/andromeda/FamliyFiles/Videos"
-const StorageDirPhotos = "/media/andromeda/FamliyFiles/Photos"
+const StorageDir = "/media/andromeda/FamilyStorage"
+const StorageDirVideo = "/media/andromeda/FamilyStorage/Video"
+const StorageDirPhotos = "/media/andromeda/FamilyStorage/Photos"
 
 var photoExts = map[string]bool{".jpg": true, ".jpeg": true, ".png": true, ".webp": true, ".gif": true}
 var videoExts = map[string]bool{".mp4": true, ".mov": true, ".mkv": true, ".avi": true, ".3gp": true}
+
+func enableCORS(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		next(w, r)
+	}
+}
 
 func main() {
 	if err := validateStorageDir(StorageDir); err != nil {
@@ -41,7 +49,11 @@ func main() {
 		log.Fatalf("Storage recovery scan failed: %v", err)
 	}
 
-	http.HandleFunc("/upload", uploadHandler)
+	http.HandleFunc("/api/upload", enableCORS(uploadHandler))
+	http.HandleFunc("/api/media", enableCORS(getMediaHandler))
+
+	http.Handle("/content/photos/", http.StripPrefix("/content/photos/", http.FileServer(http.Dir(StorageDirPhotos))))
+	http.Handle("/content/video/", http.StripPrefix("/content/video/", http.FileServer(http.Dir(StorageDirVideo))))
 
 	server := &http.Server{
 		Addr:           ":8080",
@@ -53,125 +65,4 @@ func main() {
 
 	fmt.Printf("Sync server successfully started.\nStorage path: %s\nPort: :8080\n", StorageDir)
 	log.Fatal(server.ListenAndServe())
-}
-
-func uploadHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	r.Body = http.MaxBytesReader(w, r.Body, 10*1024*1024*1024)
-
-	err := r.ParseMultipartForm(32 << 20)
-	if err != nil {
-		http.Error(w, "File size exceeds limit or invalid multipart form", http.StatusBadRequest)
-		return
-	}
-
-	file, header, err := r.FormFile("media")
-	if err != nil {
-		http.Error(w, "Error reading file", http.StatusBadRequest)
-		return
-	}
-	defer file.Close()
-
-	ext := strings.ToLower(filepath.Ext(header.Filename))
-
-	var mediaType string
-	var targetDir string
-
-	if photoExts[ext] {
-		mediaType = "photo"
-		targetDir = StorageDirPhotos
-	} else if videoExts[ext] {
-		mediaType = "video"
-		targetDir = StorageDirVideo
-	} else {
-		http.Error(w, "Not allowed media format", http.StatusBadRequest)
-		return
-	}
-
-	tempName := fmt.Sprintf("temp_%s%s", uuid.New().String(), ext)
-	tempPath := filepath.Join(StorageDir, tempName)
-
-	tempFile, err := os.Create(tempPath)
-	if err != nil {
-		http.Error(w, "Error creating temporary file", http.StatusInternalServerError)
-		return
-	}
-
-	if _, err := io.Copy(tempFile, file); err != nil {
-		tempFile.Close()
-		os.Remove(tempPath)
-		http.Error(w, "Error writing to hard drive", http.StatusInternalServerError)
-		return
-	}
-	tempFile.Close()
-
-	var incomingHash string
-	if mediaType == "photo" {
-		incomingHash, err = CalculatePHash(tempPath)
-	} else {
-		incomingHash, err = CalculateVideoHash(tempPath)
-	}
-
-	if err != nil {
-		os.Remove(tempPath)
-		http.Error(w, "Error processing file", http.StatusBadRequest)
-		return
-	}
-
-	records, err := GetRecords()
-	if err != nil {
-		os.Remove(tempPath)
-		http.Error(w, "Database error", http.StatusInternalServerError)
-		return
-	}
-
-	for _, rec := range records {
-		if rec.Type == mediaType {
-			isDup := false
-			if mediaType == "photo" {
-				isDup = IsPhotoDuplicate(incomingHash, rec.Hash)
-			} else {
-				isDup = (incomingHash == rec.Hash)
-			}
-
-			if isDup {
-				os.Remove(tempPath)
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusConflict)
-				json.NewEncoder(w).Encode(map[string]string{
-					"message":  "Duplicate detected",
-					"type":     mediaType,
-					"existing": rec.Filename,
-				})
-				return
-			}
-		}
-	}
-
-	finalName := fmt.Sprintf("%s%s", uuid.New().String(), ext)
-	finalPath := filepath.Join(targetDir, finalName)
-
-	if err := os.Rename(tempPath, finalPath); err != nil {
-		os.Remove(tempPath)
-		http.Error(w, "File save error", http.StatusInternalServerError)
-		return
-	}
-
-	if err := SaveMediaRecord(finalName, incomingHash, mediaType); err != nil {
-		os.Remove(finalPath)
-		http.Error(w, "Error writing to database", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]string{
-		"message":  "Successfully synced",
-		"type":     mediaType,
-		"filename": finalName,
-	})
 }
