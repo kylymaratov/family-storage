@@ -21,18 +21,28 @@ func InitDB() error {
 		return err
 	}
 
-	statement, err := db.Prepare(`
-		CREATE TABLE IF NOT EXISTS media (
-			filename TEXT PRIMARY KEY,
-			hash TEXT NOT NULL,
-			type TEXT NOT NULL
-		);
-	`)
-	if err != nil {
+	queryMedia := `
+	CREATE TABLE IF NOT EXISTS media (
+		filename TEXT PRIMARY KEY,
+		hash TEXT NOT NULL,
+		type TEXT NOT NULL
+	);`
+
+	if _, err = db.Exec(queryMedia); err != nil {
 		return err
 	}
-	_, err = statement.Exec()
-	return err
+
+	queryTokens := `
+	CREATE TABLE IF NOT EXISTS authorized_tokens (
+		token TEXT PRIMARY KEY,
+		device_name TEXT NOT NULL
+	);`
+
+	if _, err = db.Exec(queryTokens); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func GetRecords() ([]MediaRecord, error) {
@@ -73,5 +83,19 @@ func GetExistingFilesMap() (map[string]bool, error) {
 
 func SaveMediaRecord(filename string, hash string, mediaType string) error {
 	_, err := db.Exec("INSERT INTO media (filename, hash, type) VALUES (?, ?, ?)", filename, hash, mediaType)
+	return err
+}
+
+func IsTokenValid(token string) (bool, error) {
+	var exists bool
+	err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM authorized_tokens WHERE token = ?)", token).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
+func AddToken(token string, deviceName string) error {
+	_, err := db.Exec("INSERT OR IGNORE INTO authorized_tokens (token, device_name) VALUES (?, ?)", token, deviceName)
 	return err
 }

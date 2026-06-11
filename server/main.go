@@ -4,13 +4,22 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-
 	"time"
 )
+
+type InitialDevice struct {
+	Token      string
+	DeviceName string
+}
 
 const StorageDir = "/media/andromeda/FamliyFiles"
 const StorageDirVideo = "/media/andromeda/FamliyFiles/Videos"
 const StorageDirPhotos = "/media/andromeda/FamliyFiles/Photos"
+
+var familyDevices = []InitialDevice{
+	{Token: "SF13S2CTX6k1vK^nPGaNWcNslNT3D3aF4Qf1oj%Py$4=", DeviceName: "Me"},
+	{Token: "V+9nl6M8f9Y5q^bsZT5ZhPl@4i%Q%QwwofcePL5Dzv4=", DeviceName: "Baiel"},
+}
 
 var photoExts = map[string]bool{".jpg": true, ".jpeg": true, ".png": true, ".webp": true, ".gif": true}
 var videoExts = map[string]bool{".mp4": true, ".mov": true, ".mkv": true, ".avi": true, ".3gp": true}
@@ -19,7 +28,7 @@ func enableCORS(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusOK)
@@ -45,12 +54,18 @@ func main() {
 	}
 	defer db.Close()
 
+	for _, device := range familyDevices {
+		if err := AddToken(device.Token, device.DeviceName); err != nil {
+			log.Printf("Warning: failed to add token for %s: %v", device.DeviceName, err)
+		}
+	}
+
 	if err := syncStorageWithDB(); err != nil {
 		log.Fatalf("Storage recovery scan failed: %v", err)
 	}
 
-	http.HandleFunc("/api/upload", enableCORS(uploadHandler))
-	http.HandleFunc("/api/media", enableCORS(getMediaHandler))
+	http.HandleFunc("/api/upload", enableCORS(requireAuth(uploadHandler)))
+	http.HandleFunc("/api/media", enableCORS(requireAuth(getMediaHandler)))
 
 	http.Handle("/content/photos/", http.StripPrefix("/content/photos/", http.FileServer(http.Dir(StorageDirPhotos))))
 	http.Handle("/content/video/", http.StripPrefix("/content/video/", http.FileServer(http.Dir(StorageDirVideo))))
