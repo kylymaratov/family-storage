@@ -8,9 +8,9 @@ import (
 	"time"
 )
 
-const StorageDir = "/media/andromeda/FamilyStorage"
-const StorageDirVideo = "/media/andromeda/FamilyStorage/Video"
-const StorageDirPhotos = "/media/andromeda/FamilyStorage/Photos"
+const StorageDir = "/media/andromeda/FamliyFiles"
+const StorageDirVideo = "/media/andromeda/FamliyFiles/Videos"
+const StorageDirPhotos = "/media/andromeda/FamliyFiles/Photos"
 
 var photoExts = map[string]bool{".jpg": true, ".jpeg": true, ".png": true, ".webp": true, ".gif": true}
 var videoExts = map[string]bool{".mp4": true, ".mov": true, ".mkv": true, ".avi": true, ".3gp": true}
