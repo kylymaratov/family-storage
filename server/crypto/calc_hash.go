@@ -1,4 +1,4 @@
-package main
+package crypto
 
 import (
 	"crypto/md5"
@@ -48,18 +48,4 @@ func CalculateVideoHash(filePath string) (string, error) {
 	}
 
 	return hex.EncodeToString(hash.Sum(nil)), nil
-}
-
-func IsPhotoDuplicate(hashStr1, hashStr2 string) bool {
-	h1Uint, _ := strconv.ParseUint(hashStr1, 10, 64)
-	h2Uint, _ := strconv.ParseUint(hashStr2, 10, 64)
-
-	h1 := goimagehash.NewImageHash(h1Uint, goimagehash.PHash)
-	h2 := goimagehash.NewImageHash(h2Uint, goimagehash.PHash)
-
-	distance, err := h1.Distance(h2)
-	if err != nil {
-		return false
-	}
-	return distance <= 5
 }

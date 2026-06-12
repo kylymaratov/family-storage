@@ -1,11 +1,13 @@
-package main
+package middleware
 
 import (
 	"net/http"
 	"strings"
+
+	"server/db"
 )
 
-func requireAuth(next http.HandlerFunc) http.HandlerFunc {
+func RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
@@ -21,7 +23,7 @@ func requireAuth(next http.HandlerFunc) http.HandlerFunc {
 
 		token := parts[1]
 
-		valid, err := IsTokenValid(token)
+		valid, err := db.IsTokenValid(token)
 		if err != nil || !valid {
 			http.Error(w, "Unauthorized: Access denied", http.StatusUnauthorized)
 			return

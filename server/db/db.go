@@ -1,10 +1,12 @@
-package main
+package db
 
 import (
 	"database/sql"
 	"os"
 	"path/filepath"
 	"time"
+
+	"server/config"
 
 	_ "modernc.org/sqlite"
 )
@@ -58,6 +60,14 @@ func InitDB() error {
 	}
 
 	return nil
+}
+
+// Close releases the underlying database handle.
+func Close() error {
+	if db == nil {
+		return nil
+	}
+	return db.Close()
 }
 
 func GetRecords() ([]MediaRecord, error) {
@@ -126,9 +136,9 @@ func BackfillCreatedAt() error {
 	rows.Close()
 
 	for _, p := range items {
-		dir := StorageDirPhotos
+		dir := config.StorageDirPhotos
 		if p.mediaType == "video" {
-			dir = StorageDirVideo
+			dir = config.StorageDirVideo
 		}
 		createdAt := time.Now().Unix()
 		if info, ierr := os.Stat(filepath.Join(dir, p.filename)); ierr == nil {

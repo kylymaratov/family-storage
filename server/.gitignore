@@ -1,3 +1,7 @@
+# Files
 storage.db
-certs/
 server
+.env
+
+# Dirs
+certs/

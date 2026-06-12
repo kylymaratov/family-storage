@@ -1,4 +1,4 @@
-package main
+package routes
 
 import (
 	"encoding/json"
@@ -10,8 +10,30 @@ import (
 	"strings"
 	"time"
 
+	"server/config"
+	"server/crypto"
+	"server/db"
+	"server/utils"
+
 	"github.com/google/uuid"
 )
+
+func getMediaHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	records, err := db.GetRecords()
+	if err != nil {
+		http.Error(w, "Database internal error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(records)
+}
 
 func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -37,12 +59,12 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	var mediaType string
 	var targetDir string
 
-	if photoExts[ext] {
+	if config.PhotoExts[ext] {
 		mediaType = "photo"
-		targetDir = StorageDirPhotos
-	} else if videoExts[ext] {
+		targetDir = config.StorageDirPhotos
+	} else if config.VideoExts[ext] {
 		mediaType = "video"
-		targetDir = StorageDirVideo
+		targetDir = config.StorageDirVideo
 	} else {
 		http.Error(w, "Not allowed media format", http.StatusBadRequest)
 		return
@@ -67,9 +89,9 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 
 	var incomingHash string
 	if mediaType == "photo" {
-		incomingHash, err = CalculatePHash(tempPath)
+		incomingHash, err = crypto.CalculatePHash(tempPath)
 	} else {
-		incomingHash, err = CalculateVideoHash(tempPath)
+		incomingHash, err = crypto.CalculateVideoHash(tempPath)
 	}
 	if err != nil {
 		os.Remove(tempPath)
@@ -77,7 +99,7 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	records, err := GetRecords()
+	records, err := db.GetRecords()
 	if err != nil {
 		os.Remove(tempPath)
 		http.Error(w, "Database error", http.StatusInternalServerError)
@@ -88,7 +110,7 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 		if rec.Type == mediaType {
 			isDup := false
 			if mediaType == "photo" {
-				isDup = IsPhotoDuplicate(incomingHash, rec.Hash)
+				isDup = utils.IsPhotoDuplicate(incomingHash, rec.Hash)
 			} else {
 				isDup = (incomingHash == rec.Hash)
 			}
@@ -115,7 +137,7 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := SaveMediaRecord(finalName, incomingHash, mediaType, time.Now().Unix()); err != nil {
+	if err := db.SaveMediaRecord(finalName, incomingHash, mediaType, time.Now().Unix()); err != nil {
 		os.Remove(finalPath)
 		http.Error(w, "Error writing to database", http.StatusInternalServerError)
 		return
