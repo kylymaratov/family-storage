@@ -1,11 +1,29 @@
 @import "tailwindcss";
 
+@theme {
+    --color-bg: #1d1d1d;
+    --color-surface: #242424;
+    --color-surface-2: #303030;
+    --color-surface-3: #3a3a3a;
+    --color-accent: #3584e4;
+    --color-accent-hover: #4990e8;
+    --color-success: #2ec27e;
+    --color-warning: #e5a50a;
+    --color-danger: #e01b24;
+    --color-content: #ffffff;
+    --color-muted: #b9b9b9;
+    --color-faint: #7c7c7c;
+
+    --radius-card: 13px;
+    --radius-control: 9px;
+}
+
 :root {
     --safe-top: env(safe-area-inset-top, 0px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
     --safe-left: env(safe-area-inset-left, 0px);
     --safe-right: env(safe-area-inset-right, 0px);
-    --header-h: calc(53px + var(--safe-top));
+    --chrome-h: 0px;
 }
 
 html {
@@ -29,24 +47,17 @@ textarea {
     user-select: text;
 }
 
+.cv-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 120px;
+}
+
 .scrollbar-none {
     -ms-overflow-style: none;
     scrollbar-width: none;
 }
 .scrollbar-none::-webkit-scrollbar {
     display: none;
-}
-
-@keyframes shimmer {
-    0% {
-        transform: translateX(-100%);
-    }
-    100% {
-        transform: translateX(200%);
-    }
-}
-.animate-shimmer {
-    animation: shimmer 1.6s ease-in-out infinite;
 }
 
 @keyframes fadeIn {
@@ -75,7 +86,7 @@ input[type="month"]::-webkit-calendar-picker-indicator {
     outline: none;
 }
 :focus-visible {
-    outline: 2px solid #6366f1;
+    outline: 2px solid #3584e4;
     outline-offset: 2px;
     border-radius: 4px;
 }

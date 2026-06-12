@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"server/config"
@@ -15,8 +16,9 @@ import (
 func enableCORS(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, HEAD, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Upload-Offset, Upload-Length")
+		w.Header().Set("Access-Control-Expose-Headers", "Upload-Offset, Upload-Length")
 
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusOK)
@@ -27,21 +29,16 @@ func enableCORS(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func Handler() {
-	http.HandleFunc("/api/upload", enableCORS(middleware.RequireAuth(uploadHandler)))
-	http.HandleFunc("/api/media", enableCORS(middleware.RequireAuth(getMediaHandler)))
+	LoadSessions()
+	StartJanitor()
 
-	http.Handle("/content/photos/", http.StripPrefix("/content/photos/", http.FileServer(http.Dir(config.StorageDirPhotos))))
-	http.Handle("/content/video/", http.StripPrefix("/content/video/", http.FileServer(http.Dir(config.StorageDirVideo))))
+	http.HandleFunc("/cloud/upload", enableCORS(middleware.RequireAuth(uploadHandler)))
+	http.HandleFunc("/cloud/upload/init", enableCORS(middleware.RequireAuth(uploadInitHandler)))
+	http.HandleFunc("/cloud/upload/", enableCORS(middleware.RequireAuth(uploadSessionHandler)))
+	http.HandleFunc("/cloud/media", enableCORS(middleware.RequireAuth(getMediaHandler)))
 
-	serveCA := func(filename string) http.HandlerFunc {
-		return func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/x-x509-ca-cert")
-			w.Header().Set("Content-Disposition", `attachment; filename="`+filename+`"`)
-			http.ServeFile(w, r, "certs/ca.pem")
-		}
-	}
-	http.HandleFunc("/ca.pem", serveCA("family-cloud-ca.pem"))
-	http.HandleFunc("/ca.crt", serveCA("family-cloud-ca.crt"))
+	http.Handle("/cloud/photos/", http.StripPrefix("/cloud/photos/", http.FileServer(http.Dir(config.StorageDirPhotos))))
+	http.Handle("/cloud/video/", http.StripPrefix("/cloud/video/", http.FileServer(http.Dir(config.StorageDirVideo))))
 
 	webAppDir := os.Getenv("WEBAPP_DIR")
 	if webAppDir == "" {
@@ -62,7 +59,7 @@ func Handler() {
 	if port == "" {
 		port = "48080"
 	}
-	addr := ":" + port
+	addr := os.Getenv("FC_BIND") + ":" + port
 
 	server := &http.Server{
 		Addr:           addr,
@@ -72,20 +69,11 @@ func Handler() {
 		MaxHeaderBytes: 1 << 20,
 	}
 
-	certFile := os.Getenv("FC_TLS_CERT")
-	keyFile := os.Getenv("FC_TLS_KEY")
-	if certFile == "" && keyFile == "" {
-		if _, err := os.Stat("certs/server-cert.pem"); err == nil {
-			certFile = "certs/server-cert.pem"
-			keyFile = "certs/server-key.pem"
-		}
+	displayAddr := addr
+	if strings.HasPrefix(displayAddr, ":") {
+		displayAddr = "0.0.0.0" + displayAddr
 	}
 
-	if certFile != "" && keyFile != "" {
-		fmt.Printf("Sync server successfully started.\nStorage path: %s\nListening: https://0.0.0.0%s\n", config.StorageDir, addr)
-		log.Fatal(server.ListenAndServeTLS(certFile, keyFile))
-	}
-
-	fmt.Printf("Sync server successfully started.\nStorage path: %s\nListening: http://0.0.0.0%s\n", config.StorageDir, addr)
+	fmt.Printf("Sync server successfully started.\nStorage path: %s\nListening: http://%s\n", config.StorageDir, displayAddr)
 	log.Fatal(server.ListenAndServe())
 }

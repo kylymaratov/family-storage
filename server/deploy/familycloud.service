@@ -1,0 +1,14 @@
+[Unit]
+Description=Family Cloud media server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# .env is read relative to the working directory.
+WorkingDirectory=/media/nebula/codes/family-storage/server
+ExecStart=/media/nebula/codes/family-storage/server/familycloud
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

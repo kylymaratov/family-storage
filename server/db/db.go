@@ -62,7 +62,6 @@ func InitDB() error {
 	return nil
 }
 
-// Close releases the underlying database handle.
 func Close() error {
 	if db == nil {
 		return nil

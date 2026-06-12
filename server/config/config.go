@@ -12,8 +12,6 @@ type InitialDevice struct {
 	DeviceName string
 }
 
-// Storage roots. Populated by Load() from the environment (.env), falling back
-// to the defaults below when a variable is unset.
 var (
 	StorageDir       string
 	StorageDirVideo  string
@@ -28,9 +26,6 @@ var FamilyDevices = []InitialDevice{
 var PhotoExts = map[string]bool{".jpg": true, ".jpeg": true, ".png": true, ".webp": true, ".gif": true}
 var VideoExts = map[string]bool{".mp4": true, ".mov": true, ".mkv": true, ".avi": true, ".3gp": true}
 
-// Load reads the .env file (if present) into the process environment and
-// resolves the storage configuration. It never overrides variables that are
-// already set in the real environment.
 func Load() {
 	loadDotEnv(".env")
 
@@ -46,8 +41,6 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
-// loadDotEnv parses a simple KEY=VALUE file and sets any keys that are not
-// already present in the environment. A missing file is not an error.
 func loadDotEnv(path string) {
 	file, err := os.Open(path)
 	if err != nil {

@@ -8,12 +8,7 @@ export default defineConfig({
     host: true,
     port: 3008,
     proxy: {
-      "/api": {
-        target: "https://localhost:48080",
-        changeOrigin: true,
-        secure: false,
-      },
-      "/content": {
+      "/cloud": {
         target: "https://localhost:48080",
         changeOrigin: true,
         secure: false,

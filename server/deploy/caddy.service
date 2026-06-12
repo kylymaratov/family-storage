@@ -1,0 +1,23 @@
+[Unit]
+Description=Caddy reverse proxy for Family Cloud
+Documentation=https://caddyserver.com/docs/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+User=caddy
+Group=caddy
+# Token for the Cloudflare DNS-01 challenge.
+EnvironmentFile=/etc/caddy/caddy.env
+ExecStart=/usr/local/bin/caddy run --environ --config /etc/caddy/Caddyfile
+ExecReload=/usr/local/bin/caddy reload --config /etc/caddy/Caddyfile --force
+Restart=on-failure
+RestartSec=5s
+# Needed to bind :443 and :80 as a non-root user.
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

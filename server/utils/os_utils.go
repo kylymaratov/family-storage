@@ -2,7 +2,6 @@ package utils
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -32,34 +31,6 @@ func ValidateStorageDir(dir string) error {
 	os.Remove(testFile)
 
 	return nil
-}
-
-func MoveFile(src, dst string) error {
-	if err := os.Rename(src, dst); err == nil {
-		return nil
-	}
-	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer in.Close()
-
-	out, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	if _, err := io.Copy(out, in); err != nil {
-		os.Remove(dst)
-		return err
-	}
-	if err := out.Sync(); err != nil {
-		os.Remove(dst)
-		return err
-	}
-	in.Close()
-	return os.Remove(src)
 }
 
 func IsPhotoDuplicate(hashStr1, hashStr2 string) bool {

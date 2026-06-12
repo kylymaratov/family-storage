@@ -1,7 +1,6 @@
 # Files
 storage.db
 server
+familycloud
 .env
-
-# Dirs
-certs/
+deploy/caddy.env

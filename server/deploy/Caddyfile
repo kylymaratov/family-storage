@@ -1,0 +1,33 @@
+{
+	# Let's Encrypt account email (used for cert-expiry notices). Change if needed.
+	email info@emplbee.com
+}
+
+familycloud.klmdev.one {
+	# Obtain & auto-renew the certificate via Cloudflare DNS-01.
+	# No inbound ports required; works even when the A record points at a LAN IP.
+	# CF_API_TOKEN is provided via the environment (see deploy/caddy.env).
+	tls {
+		dns cloudflare {env.CF_API_TOKEN}
+		resolvers 1.1.1.1
+	}
+
+	encode zstd gzip
+
+	# Match the 10 GiB upload ceiling enforced by the Go server.
+	request_body {
+		max_size 10GiB
+	}
+
+	# Terminate TLS here and forward everything to the Go server (HTTP, localhost).
+	reverse_proxy 127.0.0.1:48080 {
+		flush_interval -1
+	}
+
+	log {
+		output file /var/log/caddy/familycloud.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+	}
+}

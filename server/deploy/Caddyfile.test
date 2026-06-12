@@ -1,0 +1,15 @@
+{
+	email info@emplbee.com
+	# High ports so Caddy can run as a normal user (no sudo / 443 binding).
+	# DNS-01 issuance works regardless of which ports are used.
+	http_port 8080
+	https_port 8443
+}
+
+familycloud.klmdev.one {
+	tls {
+		dns cloudflare {env.CF_API_TOKEN}
+		resolvers 1.1.1.1
+	}
+	reverse_proxy 127.0.0.1:48080
+}
