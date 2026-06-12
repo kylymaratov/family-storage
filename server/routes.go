@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -19,7 +20,6 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	r.Body = http.MaxBytesReader(w, r.Body, 10*1024*1024*1024)
-
 	err := r.ParseMultipartForm(32 << 20)
 	if err != nil {
 		http.Error(w, "File size exceeds limit or invalid form", http.StatusBadRequest)
@@ -34,7 +34,6 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	defer file.Close()
 
 	ext := strings.ToLower(filepath.Ext(header.Filename))
-
 	var mediaType string
 	var targetDir string
 
@@ -50,7 +49,7 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tempName := fmt.Sprintf("temp_%s%s", uuid.New().String(), ext)
-	tempPath := filepath.Join(StorageDir, tempName)
+	tempPath := filepath.Join(targetDir, tempName)
 
 	tempFile, err := os.Create(tempPath)
 	if err != nil {
@@ -72,7 +71,6 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		incomingHash, err = CalculateVideoHash(tempPath)
 	}
-
 	if err != nil {
 		os.Remove(tempPath)
 		http.Error(w, "Error processing file", http.StatusBadRequest)
@@ -94,7 +92,6 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 			} else {
 				isDup = (incomingHash == rec.Hash)
 			}
-
 			if isDup {
 				os.Remove(tempPath)
 				w.Header().Set("Content-Type", "application/json")
@@ -118,7 +115,7 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := SaveMediaRecord(finalName, incomingHash, mediaType); err != nil {
+	if err := SaveMediaRecord(finalName, incomingHash, mediaType, time.Now().Unix()); err != nil {
 		os.Remove(finalPath)
 		http.Error(w, "Error writing to database", http.StatusInternalServerError)
 		return

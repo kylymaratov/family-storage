@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -88,7 +89,12 @@ func syncStorageWithDB() error {
 				continue
 			}
 
-			if err := SaveMediaRecord(filename, incomingHash, target.mediaType); err != nil {
+			createdAt := int64(0)
+			if info, ierr := f.Info(); ierr == nil {
+				createdAt = info.ModTime().Unix()
+			}
+
+			if err := SaveMediaRecord(filename, incomingHash, target.mediaType, createdAt); err != nil {
 				return fmt.Errorf("failed to write recovered file %s to DB: %w", filename, err)
 			}
 
@@ -116,4 +122,31 @@ func getMediaHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(records)
+}
+func moveFile(src, dst string) error {
+	if err := os.Rename(src, dst); err == nil {
+		return nil
+	}
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	if _, err := io.Copy(out, in); err != nil {
+		os.Remove(dst)
+		return err
+	}
+	if err := out.Sync(); err != nil {
+		os.Remove(dst)
+		return err
+	}
+	in.Close()
+	return os.Remove(src)
 }
